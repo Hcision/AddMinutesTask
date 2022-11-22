@@ -1,0 +1,927 @@
+
+public with sharing class AddMinuteTaskController {
+    
+    private static Task tsk {get; set;}
+    private static Map<String> taskTypes {get; set;}
+    private static String returnUrl {get; set;}
+    private static String recordTypeName {get; set;}
+    public static Minute__c virtualMinute {get;set;}
+    @AuraEnabled public static Map<String> minutes {get;set;}
+    private static List<String> affiliates {get;set;}
+    private static Map<String>> affiliateProducts {get;set;}
+    
+    private static Map<String> minuteTypes = Util.GetRecordTypeIdsByDeveloperName(Minute__c.SObjectType);
+    private static boolean showAffiliates {get;set;}   
+    private static List<Task> taskContacts {get;set;}   
+    private static Map<String> generalProductIds {get;set;}   
+    private static List<Id> virtualMinuteIds {get;set;}
+    public static List<wrapperClass> listMinutes {get;set;}
+    private static String meetingType {get;set;}  
+    private Static final String LOGMARK = '** AddMinuteTask ** ';
+    
+    public List<SelectOption> getMeetingOptions() {
+        
+        List<SelectOption> options = new List<SelectOption>();
+        
+        options.add(new SelectOption('0','Product Related Meeting'));
+        options.add(new SelectOption('1','Introductory Meeting'));
+        options.add(new SelectOption('2','General Purpose Meeting'));
+        
+        return options;
+        
+    } 
+    
+    @AuraEnabled
+    public static Task loadTaskContext(String whatId, String whoId, String minutesType, String subject , String visitedCountry, String retUrl, String rtName){
+        
+        Task tsk = new Task();
+        taskTypes = Util.GetRecordTypeIdsByDeveloperName(Task.SObjectType);
+        
+        returnUrl = retUrl;
+        recordTypeName = rtName;
+        
+        System.debug('### taskTypes: '+ taskTypes);
+        System.debug('### RT Id for '+ recordTypeName +': ' + taskTypes.get(recordTypeName));
+        
+        tsk.OwnerId = Userinfo.getUserId();
+        tsk.WhatId = whatId;
+        tsk.WhoId = whoId;
+        tsk.Visited_Country__c = visitedCountry;
+        tsk.Minutes_Type__c = minutesType;
+        tsk.Subject = subject;
+        tsk.ActivityDate = Date.today();
+        tsk.Priority = 'Normal';
+        tsk.Status = 'Close';
+        tsk.RecordTypeId = taskTypes.get(recordTypeName);
+        return tsk;
+        
+    }
+    
+    @AuraEnabled
+    public static Task loadTaskEdit(Id recordId){
+        Minute__c minute =[SELECT ActivityId__c FROM Minute__c WHERE Id= :recordId];
+        
+        return [SELECT Id,RecordTypeId ,ActivityDate,NumberofParticipants__c ,MinutesSubType__c,Minutes_Counter__c ,Investment_Academy_Related__c ,Subject ,ISG_Attended__c,ISG_Attendees__c,DPC_Related__c,WhatId,WhoId,OwnerId ,Minutes_Type__c FROM Task WHERE Id = :minute.ActivityId__c];
+        
+    }    
+    
+    @AuraEnabled
+    public static Minute__c loadMinutesEdit(Id recordId){
+        
+        return [SELECT Affiliate__c,Next_steps_Action_plan_1__c,Next_steps_Action_plan_2__c,Next_steps_Action_plan_3__c,Next_steps_Due_Date_1__c,Next_steps_Due_Date_2__c,Next_steps_Due_Date_3__c,Client_Interest_Rating_1__c,Client_Interest_Rating_2__c,Client_Interest_Rating_3__c,Client_Interest_Rating_4__c,Client_Interest_Rating_5__c ,AccountId__c,ActivityId__c,DPC_Related__c,Minutes_for_Affiliate_Communication__c,Minutes_for_Internal_Use__c,OwnerId,Subject__c,tmpProduit1__c,tmpProduit2__c,tmpProduit3__c,tmpProduit4__c,tmpProduit5__c FROM Minute__c WHERE Id= :recordId];
+        
+    }
+    
+    @AuraEnabled
+    public static Produit__c loadProductsEdit(Id tmpProduitId){
+        
+        if(tmpProduitId != null ) {
+            return [SELECT Id, Name FROM Produit__c WHERE Id = :tmpProduitId];
+        }
+        else{
+            return [SELECT ID,  Name  FROM Produit__c LIMIT 1];
+        }             
+    }
+    
+    @AuraEnabled
+    public static List<Task> loadFollowUpTask(Id taskId){
+        List<Task> ownerIdList = new  List<Task>();
+        if(taskId != null ) {
+            ownerIdList = [SELECT OwnerId FROM Task WHERE Related_Task_Id__c = :taskId];
+        }
+        
+        return ownerIdList;
+    }
+    
+    @AuraEnabled
+    public static Minute__c loadMinuteContext(String rtName){
+        
+        minutes = new Map<String>();
+        meetingType = '0';      
+        Id  minuteRecordTypeId;
+        
+        affiliateProducts = new Map<String>>();
+        
+        if (rtName == 'DRRTasks') {
+            minuteRecordTypeId = minuteTypes.get('NAM_Minutes');
+        }
+        else if (rtName  == 'NGAMBPCE_Task'){
+            minuteRecordTypeId = minuteTypes.get('NGAMBPCE_Minutes');
+        }
+        else if(rtName == 'Minutes_Task_for_US_Offshore') {
+            minuteRecordTypeId  = minuteTypes.get('NGAM_Minutes_for_US_Offshore');
+        }
+        else {
+            minuteRecordTypeId  = minuteTypes.get('NGAM_Minutes');
+        }
+        system.debug('#minuteRecordTypeId'+minuteRecordTypeId);   
+        virtualMinute = new Minute__c(recordTypeId=minuteRecordTypeId ,Affiliate__c='TechVisualforce');
+        taskContacts = new List<Task>();
+        
+        generalProductIds = new Map<String>();
+        for(Produit__c p: [SELECT Id, Name FROM Produit__c 
+                           WHERE (Affiliate__c='Introductory Meeting' AND Name = 'Introductory Meeting')  
+                           OR (Affiliate__c='General purpose meeting' AND Name = 'General purpose meeting') LIMIT 2]){
+                               generalProductIds.put(p.Name,p.Id); 
+                           }
+        return virtualMinute;
+    }
+    
+    
+    @AuraEnabled
+    public static Account getAccount(Id whatId) {        
+        return [SELECT Id, Name, RecordTypeId from Account where ID = :whatId];
+    }
+    
+    @AuraEnabled
+    public static Map<String> generateMinutes(List<Id> virtualMinutesIds,String rtName) {
+        
+        List<String> affiliateList = new List<String>();
+        affiliates = new List<String>();
+        affiliateProducts = new Map<String>>();
+        Set<Id> productIds = new Set<Id>();
+        
+        minutes = new Map<String>();          
+        Id minuteRecordTypeId= getMinuteRTIdFromTaskRTName (rtName);
+        if( virtualMinutesIds != null && !virtualMinutesIds.isEmpty()) {
+            for (Id produit : virtualMinutesIds ){
+                productIds.add((Id)produit);
+            }
+        }
+        System.debug('productIds: ' + productIds);
+        for (Produit__c product : [Select Id,Affiliate__c FROM Produit__c
+                                   WHERE Id IN:productIds AND Affiliate__c != null 
+                                   AND Affiliate__c NOT IN ('Introductory Meeting','General purpose meeting')
+                                   ORDER By Affiliate__c ]){
+                                       
+                                       if(!minutes.containsKey(product.Affiliate__c))
+                                           minutes.put(product.Affiliate__c,new Minute__c(recordTypeId=minuteRecordTypeId,Affiliate__c=product.Affiliate__c));
+                                       if(!affiliateProducts.containsKey(product.Affiliate__c))
+                                           affiliateProducts.put(product.Affiliate__c,new Set<Id>{product.Id});
+                                       
+                                       else{
+                                           affiliateProducts.get(product.Affiliate__c).add(product.Id);
+                                           
+                                       }
+                                       
+                                       affiliateList.add(product.Affiliate__c);
+                                   }
+        
+        for(String affiliate : minutes.keySet()){
+            if(!affiliateProducts.containsKey(affiliate )){
+                minutes.remove(affiliate);
+            }
+        }
+        
+        affiliateList.sort();
+        affiliates.addAll(affiliateList);
+        
+        return minutes;
+        
+    }
+    @AuraEnabled  
+    public static task saveTaskMinutes(Task task, Minute__c virtualMinutes,String listNextStepsAction,List<String> taskContacts, String meetingType, List<Id> virtualMinutesIds,String recordTypeName, String affiliatesMap, Boolean isRecordTypeId,Boolean isShareMinutesInternally, List<User> shareMinutesInternallyContacts, String recordId) {      
+        String resultMsg = 'completed';
+        Integer j=1;       
+        List <String> listNextStepsActionPlan = new List<String>();
+        List <String> listAssignToFollowTask = new List<String>();
+        List <Date> listNextStepsDueDate = new List<Date>();           
+        List<String> missingFields = new List<String>();
+        Set<String>  affiliates = new Set<String>(); 
+        
+        
+        
+        String minutesForAffiliateCommunication = '{"root":'+affiliatesMap+'}';
+        List<wrapperClass> nextStepsList = (List<wrapperClass>) JSON.deserialize(listNextStepsAction, List<wrapperClass>.class);       
+        Map<String> meta = (Map<String>) JSON.deserializeUntyped(minutesForAffiliateCommunication);
+        List<Map>> minutesListOfMap = new List<Map>>();
+        List&lt;Object&gt; myMapMinutesObjects = (List&lt;Object&gt;) meta.get('root');
+        
+        for (Object minuteObj : myMapMinutesObjects) {
+            minutesListOfMap.add((Map<String>)minuteObj);
+        }
+        // Get Next_steps_Action_plan__c field and add it to a String list listNextStepsActionPlan
+        // Get Next_steps_Due_Date__c field and add it to a Date list listNextStepsDueDate
+        // Get the assign to lookup field and add it to a String list listAssignToFollowTask
+        for(wrapperClass aNextStep:nextStepsList){
+            listNextStepsActionPlan.add(aNextStep.nextSteps);
+            listNextStepsDueDate.add(aNextStep.dueDate);
+            listAssignToFollowTask.add(aNextStep.selectedUser.Id);
+        }
+        
+        for (Integer i =0;i<listNextStepsActionPlan j=1; i =0;i xss=removed>();
+        for(Produit__c p: [SELECT Id, Name FROM Produit__c 
+                           WHERE (Affiliate__c='Introductory Meeting' AND Name = 'Introductory Meeting')  
+                           OR (Affiliate__c='General purpose meeting' AND Name = 'General purpose meeting') LIMIT 2]){
+                               generalProductIds.put(p.Name,p.Id); 
+                           }
+        
+        // Load minutes map from client side controller
+        minutes = generateMinutes(virtualMinutesIds, recordTypeName);
+        affiliateProducts = getAffiliateProducts(virtualMinutesIds,recordTypeName);
+        try {       
+            task.Minutes_Counter__c = (meetingType == '0')?minutes.size():1;
+            //task.Description = minutes.values().get(0).Minutes_for_internal_use__c;
+            if(recordTypeName == 'NGAMBPCE_Task')
+                task.Subject = task.MinutesSubType__c;    
+            
+            upsert task;
+            if(!taskContacts.isEmpty()){
+                List<taskRelation> taskRelations = new List<taskRelation>();
+                //edit taskRelation 
+                if (recordId != null && recordId.startsWith('a1S')){
+                    List<taskRelation> taskRelationsList = [SELECT id,RelationId FROM taskRelation WHERE TaskId= : task.id ];
+                    if (taskRelationsList != null){
+                        for(TaskRelation t : taskRelationsList){
+                            if(((string)t.RelationId).startsWith('003')){  
+                                taskRelations.add(t);    
+                            }
+                        }
+                    }
+                    try {
+                        delete taskRelations;
+                    } catch (DmlException e) {
+                        System.debug(System.LoggingLevel.ERROR, LOGMARK + 'ERROR ' + e.getMessage());
+                    }
+                    taskRelations = new List<taskRelation>();
+                    
+                    for(String id : taskContacts){
+                        if(id != null){
+                            taskRelations.add(new taskRelation(RelationId=id,TaskId=task.Id));                      
+                        }     
+                    }
+                }else{
+                    
+                    //Save new taskRelation
+                    Set<Id> uniqueContactIds = new Set<Id>();
+                    if(task.whoid != null)
+                        uniqueContactIds.add(task.whoid);
+                    
+                    for(String id : taskContacts){
+                        if(id != null && (!uniqueContactIds.contains(id))){
+                            uniqueContactIds.add(id);
+                            taskRelations.add(new taskRelation(RelationId=id,TaskId=task.Id));                      
+                        }
+                        
+                    }
+                }
+                
+                insert taskRelations ;
+            }
+            Id whatId ;
+            //If Account.RecordTypeId='0120J000000cmdr'
+            if (isRecordTypeId){
+                if(((string)task.WhatId).startsWith('001'))
+                    whatId = task.WhatId ;
+                else
+                    whatId = null ;
+                
+            }
+            else{
+                Task tmpTask = [select id, accountid from Task where id = :task.Id limit 1];         
+                if(tmpTask.AccountId != null) {             
+                    whatId = tmpTask.AccountId;   
+                }       
+                else {
+                    whatId = null ;
+                }
+            }
+            //If Account.RecordTypeId !='0120J000000cmdr' 
+            if (!isRecordTypeId){
+                // Create reminder for account owner 5 business days before Due Date.
+                createDueDateTaskReminder(task,virtualMinutes,listAssignToFollowTask,listNextStepsActionPlan,listNextStepsDueDate,task.Id);
+                
+                System.debug('task.AccountId ==> '+task.AccountId+' task.id = '+task.id);
+                System.debug('Custom Whatid ==> '+whatId);
+            }
+            
+            if (meetingType != '0'){
+                if (recordId != null && recordId.startsWith('a1S')){
+                    virtualMinutes.Id=recordId;                         
+                }
+                System.debug( recordTypeName );
+                virtualMinutes.RecordTypeId= getMinuteRTIdFromTaskRTName(recordTypeName);
+                virtualMinutes.ActivityId__c = task.Id ;
+                virtualMinutes.AccountId__c = whatId ;
+                virtualMinutes.OwnerId = task.OwnerId ;
+                virtualMinutes.Primary_Contact__c = task.WhoId ;
+                virtualMinutes.Subject__c = task.Subject ;
+                virtualMinutes.Date__c = task.ActivityDate ;
+                virtualMinutes.DPC_Related__c = task.DPC_Related__c  ;
+                //If Account.RecordTypeId='0120J000000cmdr'        
+                if (isRecordTypeId){
+                    virtualMinutes.Investment_Academy_Related__c= task.Investment_Academy_Related__c;  
+                    virtualMinutes.Minutes_Type__c = task.Minutes_Type__c ;                         
+                }else {
+                    virtualMinutes.Minutes_Type__c = task.Minutes_Type__c ;                          
+                }
+                virtualMinutes.NumberofParticipants__c = task.NumberofParticipants__c;           
+                virtualMinutes.Affiliate__c = (meetingType=='2')?'General purpose meeting':'Introductory Meeting';            
+                
+                if(generalProductIds!=null && generalProductIds.containsKey(virtualMinutes.Affiliate__c)){
+                    virtualMinutes.tmpProduit1__c = generalProductIds.get(virtualMinutes.Affiliate__c);
+                }
+                try{
+                    upsert virtualMinutes ; 
+                }catch(Exception e){  
+                    system.debug('#recordTypeId'+virtualMinutes.recordTypeId);
+                    system.debug('#ownerId'+virtualMinutes.OwnerId);
+                    system.debug('#error saving minutes'+e.getMessage());                   
+                    
+                }
+                
+            }
+            else {            
+                Map<Id> productRatingMap = new  Map<Id>();
+                
+                for(Integer i=1;i&lt;=5;i++){
+                    if(virtualMinutes.get('tmpProduit'+i+'__c')!= null && virtualMinutes.get('Client_Interest_Rating_'+i+'__c')!= null)
+                        productRatingMap.put((Id)virtualMinutes.get('tmpProduit'+i+'__c'),(String)virtualMinutes.get('Client_Interest_Rating_'+i+'__c'));               
+                }           
+                String affiliate= '';
+                for (Integer k=0;k<minutesListOfMap affiliate=string.valueOf(minutesListOfMap.get(k).get( xss=removed minutes.get(affiliate).Id=recordId; xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed> contactList = new List<String>();
+                        String contactString = String.valueOf(minutesListOfMap[k].get('contacts'));
+                        
+                        if ( contactString.contains(';') ) {
+                            contactList = contactString.split(';');
+                        } else if( contactString.contains( '@' ) && contactString.contains( '.' ) ) {
+                            contactList.add( contactString );
+                        }
+                        
+                        sendEmail(minutes.get(affiliate), contactList, false, task);
+                    }
+                }
+                
+                // Save or edit minute
+                try{
+                upsert minutes.values();  
+                }catch(DmlException e){
+                    system.debug('error updating minutes'+e.getMessage());
+                   /** system.debug('task.OwnerId'+task.OwnerId);
+                    for(String affiliateValue : minutes.keySet()){
+                        system.debug('affiliate:'+affiliateValue+':'+minutes.get(affiliateValue));
+                        system.debug('affiliate:'+affiliateValue+':'+minutes.get(affiliateValue).OwnerId);
+                    }**/
+                    throw new AuraHandledException(e.getDMLMessage(0));    
+                }
+            }
+            
+            if( isShareMinutesInternally ) {
+                List<Id> contactIds = new List<Id>();
+                for( User userId : shareMinutesInternallyContacts ) {
+                    contactIds.add( userId.Id );
+                }
+                
+                sendEmail( virtualMinutes,  contactIds, true, task);
+            }
+            
+            return task;
+        } catch (DmlException ex){
+            
+            resultMsg = 'ERROR ' + ex.getMessage();
+            System.debug(System.LoggingLevel.ERROR, LOGMARK + resultMsg);
+            System.debug(System.LoggingLevel.ERROR, LOGMARK + 'ERROR ' + ex.getStackTraceString()); 
+            return null;
+        }
+    }
+    private static void sendEmail(Minute__c minuteObject, List<String> contactList, Boolean isInternal, Task task ) {
+        List<Produit> prodList = new List<Produit>();
+        List<String> productNames = new List<String>();
+        List<String> affiliateNames = new List<String>();
+        Set<Id> productIds = new Set<Id>();
+        String description; 
+        String ownerName;
+        String accountName;
+        String productName;
+        String resultMsg;
+
+        for( Integer i = 1 ; i &lt;= 5 ; i++ ) {
+            if( minuteObject.get('tmpProduit' + i + '__c') != null ){
+                productIds.add( (Id) minuteObject.get('tmpProduit' + i + '__c') );
+            }
+        }
+
+        try {
+            prodList = [SELECT Id, Name, Affiliate__c FROM Produit__c WHERE Id IN :productIds];
+        } catch( Exception ex ) {
+            resultMsg = 'ERROR ' + ex.getMessage();
+            System.debug(System.LoggingLevel.ERROR, LOGMARK + resultMsg);
+            System.debug(System.LoggingLevel.ERROR, LOGMARK + 'ERROR ' + ex.getStackTraceString()); 
+        }
+        
+        for( Produit__c product : prodList ) {
+            productNames.add( product.Name );
+            affiliateNames.add( product.Affiliate__c );
+        }
+
+        try {
+            ownerName = [SELECT Id, Name FROM User WHERE Id = :task.OwnerId].Name;
+        } catch( Exception ex ) {
+            resultMsg = 'ERROR ' + ex.getMessage();
+            System.debug(System.LoggingLevel.ERROR, LOGMARK + resultMsg);
+            System.debug(System.LoggingLevel.ERROR, LOGMARK + 'ERROR ' + ex.getStackTraceString()); 
+        }
+
+        try {
+            accountName = [SELECT Id, Name FROM Account WHERE Id = :task.WhatId].Name;
+        } catch( Exception ex ) {
+            resultMsg = 'ERROR ' + ex.getMessage();
+            System.debug(System.LoggingLevel.ERROR, LOGMARK + resultMsg);
+            System.debug(System.LoggingLevel.ERROR, LOGMARK + 'ERROR ' + ex.getStackTraceString()); 
+        }
+        
+        if( isInternal ) {
+            description = minuteObject.Minutes_for_Internal_Use__c;
+        } else {
+            description = minuteObject.Minutes_for_Affiliate_Communication__c;
+        }
+        
+        String emailBody = '<p>Hello, <p>'; 
+        emailBody += '<p>Please find bellow the notes following a ' + task.Minutes_Type__c; 
+        if( accountName != null ) {
+            emailBody += ' with ' + accountName; 
+        }
+        emailBody += ' on ' +  String.valueOf( Task.ActivityDate ) + '</p>';
+        emailBody += '<p><b>Affiliate discussed: </b> ' +  String.join( affiliateNames, ', ' ) + '</p>';
+        emailBody += '<p><b>Product discussed: </b> ' + String.join( productNames, ', ' );
+        emailBody += '<p><b>Notes/Feedback: </b>' + description +'</p>';
+        emailBody += '<p>Best, </p>';
+        emailBody += '<p>' + ownerName + '</p>';
+        
+        
+        Messaging.SingleEmailMessage message = new Messaging.SingleEmailMessage ();
+        message.setSubject( 'Client Action feedback' );
+        message.setHtmlBody( emailBody );
+        message.setToAddresses( contactList );
+        //message.setCcAddresses( new List<String>{'globalconnect-admin@natixis.com'} );
+        Messaging.SingleEmailMessage[] messages = new List<Messaging> {message};
+        Messaging.SendEmailResult[] results = new List<Messaging>();
+
+        try { 
+             results = Messaging.sendEmail(messages);
+        } catch( Exception e ) {
+            System.debug( e.getMessage() );
+        }
+        
+    }
+    public static Id getAccountOwner(Task item) {
+        Task currentTask = [SELECT Id, AccountId FROM Task WHERE Id = :item.Id LIMIT 1];
+        Account currentAccount = [SELECT OwnerId FROM Account WHERE Id = :currentTask.AccountId LIMIT 1];
+        return currentAccount.OwnerId;
+    }
+    
+    @AuraEnabled
+    public static User getOwnerName(String whatId) {
+        User userToReTurn = new User();
+        
+        if (whatId != null){
+            Account currentAccount = [SELECT OwnerId FROM Account WHERE Id = :whatId LIMIT 1];
+            List<user> accountOwner = [SELECT id,Name FROM User WHERE Id=:currentAccount.OwnerId AND isActive = true LIMIT 1];
+            if(!accountOwner.isEmpty())
+                userToReTurn = accountOwner[0];
+            else
+                 userToReTurn = [SELECT id,Name FROM User WHERE Id = :Userinfo.getUserId()];
+        }else{
+            userToReTurn = [SELECT id,Name FROM User WHERE Id = :Userinfo.getUserId()];
+        }    
+        return userToReTurn;
+    }
+    
+    @AuraEnabled
+    public static UserAndProdWrap getOwnerNameFromOpportunity(String whatId) {
+        UserAndProdWrap userAndProdToReturn = new userAndProdWrap();
+        User userToReTurn = new User();
+        Opportunity oppty = new Opportunity();
+        if (whatId != null){
+            oppty = [SELECT Id, AccountId, Account.OwnerId, Product_Strategy__c, Product_Strategy__r.Name FROM Opportunity WHERE Id = :whatId LIMIT 1];        
+            List<User> accountOwner = [SELECT Id,Name FROM User WHERE Id = :oppty.Account.OwnerId AND isActive = true LIMIT 1];
+            
+            if(!accountOwner.isEmpty())
+                userToReTurn = accountOwner[0];
+            else
+                 userToReTurn = [SELECT id,Name FROM User WHERE Id = :Userinfo.getUserId()];
+            
+        }else {
+            userToReTurn = [SELECT id,Name FROM User WHERE Id = :Userinfo.getUserId()];
+        }
+
+        Produit__c prodToReturn = new Produit__c(
+            Id = oppty.Product_Strategy__c,
+            Name = oppty.Product_Strategy__r.Name
+        );
+        
+        userAndProdToReturn.userToReturn = userToReturn;
+        userAndProdToReturn.prodToReturn = prodToReturn;
+        
+        return userAndProdToReturn;
+    }
+    
+    public class UserAndProdWrap {
+        @AuraEnabled
+        public User userToReturn;
+        @AuraEnabled
+        public Produit__c prodToReturn;
+    }
+    
+    @AuraEnabled
+    public static Contact getContactName(String whoId) {
+        Contact currentContact = [SELECT Id,Name FROM Contact WHERE Id = :whoId LIMIT 1];
+        return currentContact;
+    }
+    
+    @AuraEnabled
+    public static Opportunity getOpportunity(Id whatId) {
+        if(whatId != null ) {
+            return [SELECT Id, Name, RecordTypeId FROM Opportunity WHERE Id = :whatId LIMIT 1];
+        }
+        else{
+            return [SELECT Id, Name, RecordTypeId FROM Opportunity LIMIT 1];
+        }     
+    }
+    
+    @AuraEnabled
+    public static List <User> getUser(List<Id> ownerIds) {
+        List <User> users = new List<User>();
+        for (Integer i = 0 ;i<ownerIds xss=removed xss=removed> loadFollowupTaskList = [SELECT Id FROM Task WHERE Related_Task_Id__c = : task.Id LIMIT 3];
+        try{
+            DELETE [SELECT id FROM Task WHERE Id= :loadFollowupTaskList.get(index).Id ];  
+        }    
+        catch(DmlException e)
+        {
+            System.debug('***** Error delete followupTask ****** ---&gt; '+e.getMessage());
+        }
+        
+    }
+    
+    
+    public static Boolean isWeekendDay(Date dateParam) {
+        boolean result     = false;
+        system.debug('dateParam = '+dateParam); 
+        //Recover the day of the week
+        Date startOfWeek   = dateParam.toStartOfWeek();
+        system.debug('startOfWeek = '+startOfWeek);
+        Integer dayOfWeek  = dateParam.day() - startOfWeek.day();
+        system.debug('dayOfWeek = '+dayOfWeek);   
+        result = dayOfWeek == 0 || dayOfWeek == 6 ? true : false;
+        system.debug('result = '+result); 
+        return result;
+    } 
+    
+    public static Date addBusinessDays(Date StartDate, integer BusinessDaysToAdd) {
+        //Add or decrease in BusinessDaysToAdd days 
+        Date finalDate = StartDate;
+        system.debug('finaldate = '+finalDate);
+        integer direction = BusinessDaysToAdd < 0 direction = '+direction);
+        
+        while(BusinessDaysToAdd != 0)
+        {
+            finalDate = finalDate.AddDays(direction);
+            system.debug(' BusinessDaysToAdd = '+BusinessDaysToAdd);            
+            system.debug(' finaldate = '+finalDate);
+            if (!isWeekendDay(finalDate))
+            {
+                BusinessDaysToAdd -= direction;
+                
+            }
+        }
+        
+        return finalDate;
+    }
+    
+    public static void createDueDateTaskReminder(Task parentTask, Minute__c virtualMinute, List<String>listAssignToFollowTask, List<String>listNextStepsActionPlan, List<Date>listNextStepsDueDate,Id tskId) {
+        Date reminderDate = null;
+        Integer j=1;
+        taskTypes = Util.GetRecordTypeIdsByDeveloperName(Task.SObjectType);
+        List<Task> followupTaskList = new List<Task>();   
+        List<Task> loadFollowupTaskList = [SELECT Id FROM Task WHERE Related_Task_Id__c = : parentTask.Id LIMIT 3];
+        Integer currentSize=loadFollowupTaskList.size();
+        // Create a task for each Step Action /Due Date added
+        if((listAssignToFollowTask!=null && listAssignToFollowTask.size()>0) && (listNextStepsActionPlan!=null && listNextStepsActionPlan.size()>0) && (listNextStepsDueDate!=null && listNextStepsDueDate.size()>0) ){
+            
+            for (Integer i=0;i<listAssignToFollowTask.size();i++){
+                
+                reminderDate = addBusinessDays((Date)virtualMinute.get(' xss=removed xss=removed> '+currentSize);
+                system.debug('counter i  ===> '+i);
+                if (currentSize> 0){
+                    followupTask.Id = loadFollowupTaskList.get(i).Id;
+                    currentSize = currentSize -1;
+                }
+                followupTask.OwnerId=(Id)listAssignToFollowTask.get(i);
+                followupTask.WhatId = parentTask.WhatId;
+                followupTask.WhoId = parentTask.WhoId;
+                followupTask.Visited_Country__c = parentTask.Visited_Country__c;
+                followupTask.Minutes_Type__c = parentTask.Minutes_Type__c;
+                followupTask.Description = (String)virtualMinute.get('Next_steps_Action_plan_'+j+'__c');
+                
+                // Specific assignments.
+                followupTask.RecordTypeId = taskTypes.get('Follow_up_Minutes_Task');
+                followupTask.Subject = 'Follow up : ' + parentTask.Subject;
+                followupTask.Status = 'Open';
+                followupTask.Priority = 'Normal';
+                
+                followupTask.ActivityDate = (Date)virtualMinute.get('Next_steps_Due_Date_'+j+'__c');
+                followupTask.Related_Task_Id__c = tskId;
+                
+                if (reminderDate > Date.today()) {
+                    followupTask.ReminderDateTime = DateTime.newInstance(reminderDate,time.newInstance(8, 45, 0, 0));
+                    followupTask.IsReminderSet = true;  
+                }
+                else{
+                    followupTask.IsReminderSet = false;
+                }
+                
+                followupTaskList.add(followupTask);
+                
+                j++;
+                
+            }
+        }
+        try
+        {
+            upsert followupTaskList;              
+        }
+        catch(Exception e)
+        {
+            System.debug('***** Error insert ligne followupTask ---&gt; '+e.getMessage());
+        }
+        
+    }
+    @AuraEnabled
+    public static Id getMinuteRTIdFromTaskRTName (String taskRecordTypeName){        
+        System.debug( 'taskRecordTypeName: ' + taskRecordTypeName );     
+        System.debug( 'minuteTypes: ' + minuteTypes ); 
+        switch on taskRecordTypeName {
+            when 'DRRTasks' {
+                if( minuteTypes.get('NAM_Minutes') != null ) {
+                    return minuteTypes.get('NAM_Minutes');
+                } else {
+                    return minuteTypes.get('NGAM_Minutes');                
+                }
+            }
+            when 'NGAMBPCE_Task' {
+                return minuteTypes.get('NGAMBPCE_Minutes');
+            }
+            when 'Minutes_Task_for_US_Offshore' {
+                return minuteTypes.get('NGAM_Minutes_for_US_Offshore');
+            }
+            when else {
+                return minuteTypes.get('NGAM_Minutes');
+            }
+        }       
+    }
+    
+    public static Map<String>> getAffiliateProducts(List<Id> Ids,String rtName) {
+        
+        
+        Set<Id> productIds = new Set<Id>();
+        affiliateProducts = new Map<String>>();
+                
+        if( Ids != null && !Ids.isEmpty()) {
+            for (Id produit : Ids ){
+                productIds.add((Id)produit);
+            }
+        }
+        for (Produit__c product : [Select Id,Affiliate__c FROM Produit__c
+                                   WHERE Id IN:productIds AND Affiliate__c != null 
+                                   AND Affiliate__c NOT IN ('Introductory Meeting','General purpose meeting')
+                                   ORDER By Affiliate__c ]){
+                                       
+                                       if(!affiliateProducts.containsKey(product.Affiliate__c))
+                                           affiliateProducts.put(product.Affiliate__c,new Set<Id>{product.Id});
+                                       
+                                       else{
+                                           affiliateProducts.get(product.Affiliate__c).add(product.Id);   
+                                       }      
+                                   }
+        
+        return affiliateProducts;
+        
+    }
+    
+    @AuraEnabled
+    public static List<wrapperClass> initMethod(){
+        // create a wrapper class object and set the wrapper class @AuraEnabled properties and return it to the lightning component.
+        wrapperClass returnwrapperClass = new wrapperClass (); 
+        listMinutes = new List<wrapperClass>();
+        
+        returnwrapperClass.nextSteps = '';
+        returnwrapperClass.dueDate = null; 
+        returnwrapperClass.selectedUser = [SELECT Id,Name FROM User WHERE Id =: UserInfo.getUserId() LIMIT 1];
+        listMinutes.add(returnwrapperClass);
+        return listMinutes;
+        
+    }
+    
+    // wrapper or Inner class with @AuraEnabled {get;set;} properties*    
+    public class wrapperClass{
+        @AuraEnabled public String nextSteps {get;set;}
+        @AuraEnabled public Date dueDate {get;set;}
+        @AuraEnabled public User selectedUser {get;set;}
+    }
+    
+    @AuraEnabled 
+    public static Map<String>> getDependentMap(sObject objDetail, string contrfieldApiName,string depfieldApiName,String rtName,String taskRecordTypeId, String recordId) {
+        String controllingField = contrfieldApiName.toLowerCase();
+        String dependentField = depfieldApiName.toLowerCase();
+        Id recordTypeId = null;
+        
+        if (recordId != null && recordId.startsWith('a1S')){
+            RecordType recordType = [SELECT Id, DeveloperName FROM RecordType WHERE Id =: taskRecordTypeId LIMIT 1];
+            recordTypeId = Schema.SObjectType.Task.getRecordTypeInfosByDeveloperName().get(recordType.DeveloperName).getRecordTypeId();
+        }
+        else {
+            recordTypeId = Schema.SObjectType.Task.getRecordTypeInfosByDeveloperName().get(rtName).getRecordTypeId();
+        }
+        
+        Map<String>> mapPicklistValues = new Map<String>>();
+        System.debug( 'rtName: ' + rtName );
+        mapPicklistValues = getValues('Minute__c', getMinuteRTIdFromTaskRTName(rtName), 'MinutesSubType__c');
+        
+        return mapPicklistValues;
+        
+    }   
+    
+    public static HttpResponse makePickListValuesCallout(String objectType, String recordTypeId, String fieldName){
+        
+        String endpoint = URL.getSalesforceBaseUrl().toExternalForm();      
+        endpoint += '/services/data/v46.0';
+        endpoint += '/ui-api/object-info/' + objectType + '/picklist-values/' + recordTypeId + '/' + fieldName;      
+        System.debug( 'objectType: ' + objectType );     
+        System.debug( 'recordTypeId: ' + recordTypeId );     
+        System.debug( 'fieldName: ' + fieldName );
+        EncodingUtil.urlEncode(endpoint,'UTF-8');
+        // Call the API in order to get the values 
+        HttpRequest req = new HttpRequest();
+        
+        // Since, we can not use the UserInfo.getSessionId() method here,we are using a Visualforce page in order
+        // to extract the session id which we can use for making API calls
+        req.setHeader('Authorization', 'Bearer ' +getSessionIdFromVFPage(Page.SessionId)); 
+        req.setHeader('Accept', 'application/json '); 
+        req.setHeader('Content-Type', 'application/json');
+        req.setEndpoint(endpoint);
+        req.setMethod('GET');
+        Http http = new Http();
+        
+        HTTPResponse res = http.send(req);
+        
+        return res ;
+    }
+    
+    public static Map<String>> getValues(String objectType, String recordTypeId, String fieldName) {
+        
+        HTTPResponse res = new HttpResponse();
+        
+        if(!Test.isRunningTest())
+            res = makePickListValuesCallout(objectType,recordTypeId,fieldName);
+        
+        Map<String> result = new Map<String>();
+        Map<String>> mapControllingWithDependentList = new Map<String>>();
+        Map&lt;Object, String&gt; mapControllingValueWithIndex = new Map&lt;Object,String&gt;();
+        Map<String>> mapPicklistValues = new Map<String>>();
+        
+        // Parse the response and build the dependent and controlling picklist values map
+        if( res.getStatus() == 'OK' && res.getStatusCode() == 200 ) {
+            system.debug('resBody'+res.getBody());
+            Map<String> root = (Map<String>) JSON.deserializeUntyped( res.getBody() );
+            
+            // Get all the controlling values from response 
+            if( root.containsKey('controllerValues') ) {
+                
+                Map<String> controllingValues = (Map<String>) root.get( 'controllerValues' );
+                
+                // Map of all the controlling values with their index 
+                for( String cValue: controllingValues.keySet() ) {
+                    
+                    mapControllingValueWithIndex.put( controllingValues.get(cValue), (String)cValue.unescapeHtml4() );
+                }
+            }
+            
+            System.debug('mapControllingValueWithIndex : ' + JSON.serializePretty( mapControllingValueWithIndex ) );
+            
+            if( !root.containsKey( 'values' ) ){ 
+                
+                return mapControllingWithDependentList; 
+            }
+            
+            // Get all the dependent values from the response returned with the Validfor attribute
+            // Each bit in the bitmap indicates whether this dependent picklist value is "valid for" a corresponding controlling field value
+            // The value in the validFor member is a Base64-encoded bitmap. 
+            List&lt;Object&gt; pValues = (List&lt;Object&gt;) root.get( 'values' );
+            for(Object pValue : pValues) {
+                
+                Map<String> pValueMap = (Map<String>)pValue;
+                result.put( (String) pValueMap.get('value'), (String) pValueMap.get('label') );
+                
+                for(Object validfor : (List&lt;Object&gt;)pValueMap.get('validFor')) {
+                    
+                    //Map the dependent Values List with their Controlling Value 
+                    if( mapControllingValueWithIndex.containsKey( validfor ) ) {
+                        
+                        if( !mapControllingWithDependentList.containsKey( mapControllingValueWithIndex.get( validfor ) ) ) {
+                            
+                            mapControllingWithDependentList.put( mapControllingValueWithIndex.get( validfor ), new List<String>() );
+                        }
+                        String unescapedValue = ((String)  pValueMap.get( 'label' )).unescapeHtml4();
+                        mapControllingWithDependentList.get( mapControllingValueWithIndex.get( validfor ) ).add( unescapedValue );    
+                    }
+                }                
+            }
+            
+            System.debug( 'mapControllingWithDependentList : ' + JSON.serializePretty( mapControllingWithDependentList ) );
+            
+            //Map all the controlling values 
+            for( String controllingFields : mapControllingValueWithIndex.Values() ){
+                //Map controllingFields which has no dependent values associated to it
+                if( !mapPicklistValues.containsKey( controllingFields ) ) {
+                    
+                    mapPicklistValues.put(controllingFields,new List<String>());
+                }
+                //Map controllingFields which has dependent values associated to it
+                if(mapPicklistValues.containsKey( controllingFields ) && 
+                   mapControllingWithDependentList.containsKey( controllingFields ) ) {
+                       
+                       mapPicklistValues.get( controllingFields ).addAll( mapControllingWithDependentList.get( controllingFields ) );
+                   } 
+            }            
+        }
+        else{
+            
+            System.debug( 'mapPicklistValues : ' + JSON.serializePretty( mapPicklistValues ) );
+        }
+        
+        //Return the Map of Controlling fields with the List of Dependent fields on the basis of Record Types
+        System.debug( 'mapPicklistValues : ' + JSON.serializePretty( mapPicklistValues ) );
+        
+        return mapPicklistValues;
+        
+    }
+    
+    public static String getSessionIdFromVFPage( PageReference visualforcePage ) {
+        
+        if( !Test.isRunningTest() ) {
+            
+            String sessionId = visualforcePage.getContent().toString();
+            return sessionId;
+        }
+        
+        return UserInfo.getSessionId();
+        
+    }   
+    
+    
+    @AuraEnabled
+    public static List<wrapperClass> editNextSteps(Id recordId,List<Id> ownerIds){
+        // create a wrapper class object and set the wrapper class @AuraEnabled properties and return it to the lightning component.
+        Minute__c minute = loadMinutesEdit(recordId);
+        wrapperClass returnwrapperClass1 = new wrapperClass (); 
+        wrapperClass returnwrapperClass2 = new wrapperClass ();
+        wrapperClass returnwrapperClass3 = new wrapperClass ();
+        Map <Integer> mapUser = new Map <Integer>();
+        List <User> listUser = [SELECT Id,Name FROM User WHERE Id IN: ownerIds LIMIT 3];
+        system.debug('listUser ===>'+listUser);
+        system.debug('ownerIds ===>'+ownerIds);
+        for (Integer i =0; i < listUser xss=removed>();
+        system.debug('mapUser  ===> '+mapUser);
+        if (minute.Next_steps_Action_plan_1__c != null && minute.Next_steps_Due_Date_1__c !=null && mapUser.get(0) != null){
+            returnwrapperClass1.nextSteps = minute.Next_steps_Action_plan_1__c;
+            returnwrapperClass1.dueDate = minute.Next_steps_Due_Date_1__c; 
+            returnwrapperClass1.selectedUser = mapUser.get(0);
+            listMinutes.add(returnwrapperClass1);
+        }else{
+            // Display the default OwnerId in the case of old minutes already created
+            returnwrapperClass1.nextSteps = minute.Next_steps_Action_plan_1__c;
+            returnwrapperClass1.dueDate = minute.Next_steps_Due_Date_1__c; 
+            returnwrapperClass1.selectedUser = null;
+            listMinutes.add(returnwrapperClass1);            
+        }
+        if (minute.Next_steps_Action_plan_2__c != null && minute.Next_steps_Due_Date_2__c !=null && mapUser.get(1) != null){
+            returnwrapperClass2.nextSteps = minute.Next_steps_Action_plan_2__c;
+            returnwrapperClass2.dueDate = minute.Next_steps_Due_Date_2__c; 
+            returnwrapperClass2.selectedUser = mapUser.get(1);
+            listMinutes.add(returnwrapperClass2);
+        }
+        if (minute.Next_steps_Action_plan_3__c != null && minute.Next_steps_Due_Date_3__c !=null && mapUser.get(2) != null){
+            returnwrapperClass3.nextSteps = minute.Next_steps_Action_plan_3__c;
+            returnwrapperClass3.dueDate = minute.Next_steps_Due_Date_3__c; 
+            returnwrapperClass3.selectedUser = mapUser.get(2);
+            listMinutes.add(returnwrapperClass3);
+        }
+        return listMinutes;
+        
+    }
+    
+    @AuraEnabled
+    public static List <Contact> editGetContactsName (Id taskId){
+        List<Contact> contactSelected = new List<Contact>();
+        List<taskRelation> taskRelations = [SELECT RelationId FROM taskRelation WHERE TaskId= : taskId ];
+        
+        for(TaskRelation t : taskRelations){
+            if(((string)t.RelationId).startsWith('003')){                
+                Contact cnt = [SELECT Id, Name from Contact Where Contact.Id =: t.RelationId];
+                contactSelected.add(cnt);
+            }
+        }
+        return contactSelected;  
+    }
+    
+}

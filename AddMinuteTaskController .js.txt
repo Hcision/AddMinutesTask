@@ -1,0 +1,226 @@
+({
+    doInit : function(component, event, helper) {
+        var recordId = component.get("v.recordId");
+        var controllingFieldAPI = component.get("v.controllingFieldAPI");
+        var dependingFieldAPI = component.get("v.dependingFieldAPI");
+        var objDetails = component.get("v.objDetail");
+        if (recordId != undefined && recordId.startsWith("a1S")){
+            var action = component.get("c.loadTaskEdit");
+            action.setParams({"recordId": recordId});
+            action.setCallback(this, function(response){
+                var state = response.getState();
+                if (state === "SUCCESS") {
+                    component.set("v.tsk", response.getReturnValue());
+                    
+                    if (component.get("v.tsk.ISG_Attended__c") == true){
+                        var changeElement = component.find("isg");
+                        $A.util.toggleClass(changeElement, "slds-hide");       
+                    }
+                    //Load Minutes Type
+                    var taskRecordTypeId =  component.get("v.tsk.RecordTypeId");
+                    console.log('#taskRecordTypeId:'+taskRecordTypeId);
+                    helper.fetchPicklistValues(component,objDetails,controllingFieldAPI, dependingFieldAPI,'',taskRecordTypeId,recordId);
+                    console.log('EDIT TASK ===> ',response.getReturnValue());
+                    if (component.get("v.tsk.WhatId").startsWith("006")) { 
+                        helper.getOwnerNameOpportunity(component);
+                        helper.getAccountOpportunity(component);
+                    }else {
+                        helper.getAccount(component);
+                        helper.getOwnerName(component);
+                    }
+                    component.set("v.tsk.OwnerId", component.get("v.selectedLookUpUserRecord").Id);
+                }
+                var action = component.get("c.loadFollowUpTask");
+                action.setParams({"taskId": component.get("v.tsk.Id")});
+                action.setCallback(this, function(response){
+                    var state = response.getState();           
+                    if (state === "SUCCESS") {                           
+                        var objectData=[];
+                        for(var i=0;i<response xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed i=1;i xss=removed i=1;i i=2;i xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed> 0){
+                    component.set("v.bDisabledDependentFld" , false);  
+                    helper.fetchDepValues(component, ListOfDependentFields);    
+                }else{
+                    component.set("v.bDisabledDependentFld" , true); 
+                    component.set("v.listDependingValues", ['--- None ---']);
+                }  
+                
+            } else {
+                component.set("v.listDependingValues", ['--- None ---']);
+                component.set("v.bDisabledDependentFld" , true);
+            }
+        }
+        else{
+            var selectedValue = component.find("minutesType").get("v.value");
+            if (selectedValue == '--- None ---'){
+                component.set("v.tsk.Subject", "");
+            }else{
+                component.set("v.tsk.Subject", selectedValue);
+            }
+            
+        }
+    },
+    
+    onChangeMinutesSubType : function(component, event, helper) {
+        if (component.get("v.isRecordTypeId")){
+            var selectedValue = component.find("subType").get("v.value");
+            component.set("v.tsk.Subject", selectedValue);
+            
+        }
+    },
+    
+    onSelectChange : function(component, event, helper) {      
+        var selectedValue = component.find("isg").get("v.value");
+        component.set("v.tsk.ISG_Attendees__c", selectedValue);
+        
+    },
+    
+    selectChange : function(component, event, helper) {
+        var changeElement = component.find("isg");
+        $A.util.toggleClass(changeElement, "slds-hide");
+    },
+    
+    disableProducts: function(component, event) {
+        var meetingValue = component.find("radioGroup").get("v.value");
+        var recordId = component.get("v.recordId");
+  //Edit mode
+        if (recordId != undefined && recordId.startsWith("a1S")){
+            if (meetingValue != 0) {
+                for(var i=1;i&lt;=5;i++){
+                    component.set("v.rating",true);
+                    component.find("pdt"+i).set("v.disabled", true);
+                }
+            } else {
+                for(i=2;i&lt;=5;i++){
+                    component.find("pdt1").set("v.disabled", false);
+                    component.set("v.rating",false);
+                    component.find("pdt"+i).set("v.disabled", true);
+                }
+            }
+        }
+        //Save mode
+        else{
+            if (meetingValue != 0) {
+                for(var i=1;i&lt;=5;i++){
+                    component.set("v.rating",true);
+                    component.find("pdt"+i).set("v.disabled", true);
+                }
+            } else {
+                for(i=1;i&lt;=5;i++){
+                    component.set("v.rating",false);
+                    component.find("pdt"+i).set("v.disabled", false);
+                }
+            }
+        }
+        
+    },
+    
+    addNextSteps : function (component, event,helper) {
+        var listWrapper = component.get("v.wrapperList");
+        var user = component.get("v.taskFollowUser");
+        var index = component.get("v.index")+1;
+        if (index<3 xss=removed productIds=JSON.stringify(ids); i=1;i xss=removed tmpProduit!=null){ xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed taskContactsId=[]; xss=removed xss=removed>1 && taskContactsList.length<49 i=0;i xss=removed if(taskContactsList!=null xss=removed>1 && taskContactsList.length<49 i=1;i xss=removed taskInternalParticipantsId=[]; xss=removed xss=removed>1 && taskInternalParticipantsList.length<49 i=0;i xss=removed if(taskInternalParticipantsList!=null xss=removed>1 && taskInternalParticipantsList.length<49 i=1;i i=1;i xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed xss=removed productIds=JSON.stringify(ids); xss=removed xss=removed validMinuteForm=helper.validateMinuteForm(component); validateFields=helper.validateFields(component,event); xss=removed xss=removed>0 && taskInternalParticipants.length>0){
+            component.set("v.showSpinner", true);            
+            var action = component.get("c.saveTaskMinutes");       
+            action.setParams({
+                "task": task,
+                "virtualMinutes": component.get("v.virtualMinute"),
+                "listNextStepsAction": JSON.stringify(listNextSteps),
+                "taskContacts": taskContacts,
+    "taskInternalParticipants": taskInternalParticipants,
+                "meetingType" : meetingPickList,
+                "virtualMinutesIds" : productIds,
+                "recordTypeName": component.get("v.pageReference").state.c__rtName,
+                "affiliatesMap" : affiliates,
+                "isRecordTypeId" : component.get("v.isRecordTypeId"),
+                "isShareMinutesInternally" : component.get("v.isShareMinutesInternally"),
+                "shareMinutesInternallyContacts" : component.get("v.selectedLookUpShareMinutes"),
+                "recordId" : recordId
+            });
+            action.setCallback(this, function(response) {
+                var state = response.getState();
+
+                if (state === "SUCCESS") {
+                    component.set("v.hasErrors", false);
+                    if (recordId != undefined && recordId.startsWith("a1S")){
+                        navEvt.setParams({"recordId": response.getReturnValue().Id});
+                    }else
+                    {
+                        navEvt.setParams({"recordId": component.get("v.pageReference").state.c__WhatId});
+                        
+                    }
+                    navEvt.fire();     
+                        toastEvent.setParams({
+                            "mode": "dismissable",
+                            "message": "Minutes were saved successfully.",
+                            "type" :"success"
+                            
+                        });
+                        toastEvent.fire();
+                    
+                }else if (state === "ERROR") {              
+                    var errors = response.getError();
+              component.set("v.showSpinner", false);   
+                     toastEvent.setParams({
+                            "mode": "dismissable",
+                            "message": errors[0].message,
+                            "type" :"error"
+                            
+                        });
+                        toastEvent.fire();
+                    if (errors) {
+                        console.log("ERROR : ",JSON.stringify(errors),errors[0]);
+                        if (errors[0]) {
+                            component.set("v.hasErrors", true);
+                            component.set("v.errorMessage",errors[0].message);               
+                        } else {
+                            component.set("v.hasErrors", true);
+                            component.set('v.errorMessage', "ERROR : Unknown error");
+                        }
+                        
+                    }
+                }  
+            }); 
+            $A.enqueueAction(action);
+        }
+        else 
+        {  if(taskContacts.length==0){
+            toastEvent.setParams({
+                "mode": "dismissable",
+                "message": "Please add Participants",
+                "type" :"error"
+                
+            });
+            toastEvent.fire();
+        }else{
+                toastEvent.setParams({
+                    "mode": "dismissable",
+                    "message": "These required fields must be completed:",
+                    "type" :"error"
+                    
+                });
+                toastEvent.fire();
+
+            }
+        
+        }
+    },
+    
+    cancel :function(component, event) {
+        var navEvt = $A.get("e.force:navigateToSObject");
+        var recordId = component.get("v.recordId");
+        if (recordId != undefined && recordId.startsWith("a1S")){
+            navEvt.setParams({
+                "recordId": component.get("v.tsk.Id")
+            }); 
+        }else
+        {
+            navEvt.setParams({
+                "recordId": component.get("v.pageReference").state.c__WhatId
+            });   
+        }
+        
+        navEvt.fire();
+    },
+
+     
+    })

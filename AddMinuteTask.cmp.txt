@@ -1,0 +1,416 @@
+<aura controller="AddMinuteTaskController" implements="forceCommunity:searchInterface,lightning:isUrlAddressable,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,force:lightningQuickAction,lightning:actionOverride" access="global">
+    &lt;!--Declare Attributes--&gt;
+    <aura name="index" type="Integer" default="0">
+    <aura name="accGetID" type="String">
+    <aura name="WhatId" type="String">
+    <aura name="whoId" type="String">
+    <aura name="subject" type="String">
+    <aura name="visitedCountry" type="String">
+    <aura name="retUrl" type="String">
+    <aura name="rtName" type="String">
+    <aura name="tsk" type="Task">
+    <aura name="virtualMinute" type="Minute__c">
+    <aura name="virtualMinuteIds" type="List">
+    <aura name="hasErrors" type="Boolean">
+    <aura name="errorMessage" type="String" default="">
+    <aura name="taskContacts" type="List">
+ <aura name="taskInternalParticipants" type="List">
+    <aura name="affiliates" type="List" default="[]">
+    <aura name="account" type="Account">
+    <aura name="opportunity" type="Opportunity">
+    <aura name="user" type="User">
+    <aura name="contact" type="sObject">
+    <aura name="taskFollowUser" type="User">
+    <aura name="product" type="Produit__c">    
+    <aura name="isRecordTypeId" type="Boolean" default="false">
+    <aura name="rating" type="Boolean" default="false">
+    <aura name="wrapperList" type="List" default="[]">
+    <aura name="selectedLookUpUserRecord" type="sObject" default="{}">
+    <aura name="selectedLookUpFollowTaskUser" type="sObject" default="{}">
+    <aura name="selectedLookUpAccountRecord" type="sObject" default="{}">
+    <aura name="selectedLookUpContactRecord" type="sObject[]" default="[]">
+    <aura name="selectedLookUpInternalParticipantRecord" type="sObject[]" default="[]">
+    <aura name="selectedLookUpProductRecord1" type="sObject" default="{}">
+    <aura name="selectedLookUpProductRecord2" type="sObject" default="{}">
+    <aura name="selectedLookUpProductRecord3" type="sObject" default="{}">
+    <aura name="selectedLookUpProductRecord4" type="sObject" default="{}">
+    <aura name="selectedLookUpProductRecord5" type="sObject" default="{}">
+    <aura name="showSpinner" type="Boolean" default="false">
+    
+    <aura name="listIsgAttendeesValues" type="Object">
+    <aura name="listMinutesType" type="Object">
+    <aura name="listMinutesSubType" type="Object">
+    <aura name="pageReference" type="Object">
+    
+    <aura name="options" type="List" default="{!v.listMinutesType}">
+    <aura name="isShareMinutesInternally" type="Boolean" default="false">
+    <aura name="selectedLookUpShareMinutes" type="sObject[]" default="[]">
+    
+    <aura name="meetingOptions" type="List" default="[
+                                                               {'label': 'Product Related Meeting', 'value': '0'},
+                                                               {'label': 'Introductory Meeting', 'value': '1'},
+                                                               {'label': 'General Purpose Meeting', 'value': '2'}
+                                                               ]">
+    
+    <aura name="listControllingValues" type="list" default="[]" description="to store controller field values">
+    <aura name="listDependingValues" type="list" default="['--- None ---']" description="to store dependent field values">
+    <aura name="depnedentFieldMap" type="map" description="map to store dependent values with controlling value">
+    <aura name="bDisabledDependentFld" type="boolean" default="true"> 
+    
+    <aura name="objDetail" type="Task" default="{'sobjectType' : 'Task'}">
+    <aura name="controllingFieldAPI" type="string" default="Minutes_Type__c" description="store field API name of Controller field">
+    <aura name="dependingFieldAPI" type="string" default="MinutesSubType__c" description="store field API name of dependent field">
+    
+    
+    <aura name="meetingType" type="String" default="0">
+    <aura name="picklistValues" type="Object">
+    
+    &lt;!--aura init handler --&gt;   
+    <aura name="change" value="{!v.selectedLookUpProductRecord1}" action="{!c.selectedLookupChanged}"> 
+    <aura name="change" value="{!v.selectedLookUpProductRecord2}" action="{!c.selectedLookupChanged}"> 
+    <aura name="change" value="{!v.selectedLookUpProductRecord3}" action="{!c.selectedLookupChanged}"> 
+    <aura name="change" value="{!v.selectedLookUpProductRecord4}" action="{!c.selectedLookupChanged}"> 
+    <aura name="change" value="{!v.selectedLookUpProductRecord5}" action="{!c.selectedLookupChanged}"> 
+    <aura name="change" value="{!v.selectedLookUpContactRecord}" action="{!c.selectedLookUpContactRecord}">
+ <aura name="change" value="{!v.selectedLookUpInternalParticipantRecord}" action="{!c.selectedLookUpInternalParticipantRecord}">
+    <aura name="change" value="{!v.selectedLookUpUserRecord}" action="{!c.selectedLookupUserChanged}">
+    <aura name="change" value="{!v.virtualMinute.Client_Interest_Rating_1__c}" action="{!c.myChangeHandler}">
+    <aura name="change" value="{!v.virtualMinute.Client_Interest_Rating_2__c}" action="{!c.myChangeHandler}">
+    <aura name="change" value="{!v.virtualMinute.Client_Interest_Rating_3__c}" action="{!c.myChangeHandler}">
+    <aura name="change" value="{!v.virtualMinute.Client_Interest_Rating_4__c}" action="{!c.myChangeHandler}">
+    <aura name="change" value="{!v.virtualMinute.Client_Interest_Rating_5__c}" action="{!c.myChangeHandler}">
+    
+    <aura name="init" value="{!this}" action="{!c.doInit}">
+    <aura name="change" value="{!v.pageReference}" action="{!c.reInit}">
+    
+    <c sObjectName="Task" fieldName="ISG_Attendees__c" picklistValues="{!v.listIsgAttendeesValues}">
+    
+    &lt;!-- PAGE HEADER --&gt;
+    <ul class="slds-has-dividers_around-space" xss=removed>
+        <li class="slds-item" xss=removed>
+            <lightning label="" class="slds-tile_board">
+                <div class="slds-page-header__row">
+                    <div class="slds-page-header__col-title">
+                        <div class="slds-media">
+                            <div class="slds-media__figure">
+                                <lightning iconName="utility:email" size="medium" alternativeText="Indicates approval">
+                            </div>
+                            <div class="slds-media__body">
+                                <div class="slds-page-header__name">
+                                    <div class="slds-page-header__name-title">
+                                        <h1>
+                                            <span class="slds-page-header__title slds-truncate" title="Manage Subscriptions">Add Minutes</span>
+                                        </h1>
+                                    </div>
+                                </div>
+                                <p class="slds-page-header__name-meta">
+                                    Call / Meeting Minutes
+                                </p>
+                                
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </lightning>
+        </li>
+    </ul>
+    &lt;!-- / PAGE HEADER --&gt;
+    <lightning>
+        <aura isTrue="{!v.hasErrors}">
+            <div>
+                <ui title="Review the errors on this page." severity="error" closable="true">
+                    Please review the error messages.
+                </ui>
+            </div>
+        </aura>
+        <h3 class="slds-section__title slds-theme--shade primaryPaletteBorder test-id__section-header-container">
+            <span class="test-id__section-header-title section-header-title slds-p-horizontal--small slds-truncate">Call/Meeting Information</span>
+        </h3>
+        <lightning multipleRows="true">
+            <lightning size="6" padding="around-small">
+                <lightning aura:id="minutesType" value="{!v.tsk.Minutes_Type__c}" label="{!$Label.c.LEX_AddMinutesTask_MinutesType}" required="true" messageWhenValueMissing="Choose one!" xss=removed>       
+                    <aura items="{!v.listControllingValues}" var="item">
+                        <option value="{!item}">
+                            {!item}
+                        </option>
+                    </aura>
+                </lightning>
+            </lightning>
+            <lightning size="6" padding="around-small">
+                <div class="slds-form-element__control slds-input-has-icon slds-input-has-icon--right">
+                    <c aura:id="lookupAssignTo" objectAPIName="user" IconName="standard:user" selectedRecord="{!v.selectedLookUpUserRecord}" label="{!$Label.c.LEX_AddMinutesTask_AssignedTo}" required="true">
+                </div>    
+            </lightning>                  
+        </lightning>
+        <lightning multipleRows="true">
+            <aura isTrue="{!v.isRecordTypeId}">
+                <lightning size="6" padding="around-small">
+                    <lightning aura:id="subType" value="{!v.tsk.MinutesSubType__c}" disabled="{!v.bDisabledDependentFld}" label="{!$Label.c.LEX_AddMinutesTask_MinutesSubType}" required="true" xss=removed>       
+                        <aura items="{!v.listDependingValues}" var="item">
+                            <option value="{!item}">
+                                {!item}
+                            </option>
+                        </aura>
+                    </lightning>
+                </lightning>
+                <aura attribute="else">            
+                    <lightning size="6" padding="around-small">
+                        <lightning aura:id="minuteForm" type="search" label ="{!$Label.c.LEX_AddMinutesTask_Subject}" value="{!v.tsk.Subject}" required="true">
+                    </lightning>
+                </aura>
+            </aura>                                                                                                                                     
+            <lightning size="6" padding="around-small">
+                <c aura:id="lookupContactName" required="true" objectAPIName="Contact" subtitleField="Account.Name" IconName="standard:contact" lstSelectedRecords="{!v.selectedLookUpContactRecord}" label="{!$Label.c.LEX_AddMinutesTask_ContactName}" whatId="{!v.pageReference.state.c__WhatId}">
+            </lightning>  
+    <lightning size="6" padding="around-small">
+            
+            </lightning>    
+            <lightning size="6" padding="around-small"> 
+    <c aura:id="lookupUsersName" required="true" objectAPIName="User" IconName="standard:user" lstSelectedRecords="{!v.selectedLookUpInternalParticipantRecord}" label="Internal Participants" whatId="{!v.pageReference.state.c__WhatId}">
+            </lightning>  
+        </lightning>
+        <lightning multipleRows="true">            
+            <lightning flexibility="auto" padding="around-small">
+                <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_PRCG_Related}</label>
+                <ui aura:id="dpc" value="{!v.tsk.DPC_Related__c}">  
+            </lightning>
+   <lightning flexibility="auto" padding="around-small">
+                <label class="slds-form-element__label">Executive meeting / C-level meetings</label>
+                <ui aura:id="ExmClm" value="{!v.tsk.Executive_meeting_C_level_meetings__c}">  
+            </lightning>
+            <aura isTrue="{!v.isRecordTypeId}">
+                <lightning flexibility="auto" padding="around-small">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_InvestmentAcademyRelated}</label>
+                    <ui value="{!v.tsk.Investment_Academy_Related__c}">                            
+                </lightning>
+                <aura attribute="else">
+                    <lightning flexibility="auto" padding="around-small">
+                        <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_ISG_Attended}</label>
+                        <lightning content="{!$Label.c.LEX_AddMinutesTask_ISG_Attended_InlineHelpText}">                  
+                        <ui change="{!c.selectChange}" value="{!v.tsk.ISG_Attended__c}">                            
+                    </lightning>
+                </aura>
+            </aura>
+            <lightning size="6" padding="around-small">
+                <c aura:id="lookupRelatedTo" objectAPIName="account" IconName="standard:account" selectedRecord="{!v.selectedLookUpAccountRecord}" label="{!$Label.c.LEX_AddMinutesTask_RelatedTo}" required="true">
+            </lightning>
+        </lightning>
+        <lightning multipleRows="true">
+            <aura isTrue="{!v.recordTypeName =='NGAMBPCE_Task'}">
+                <lightning flexibility="auto" padding="around-small">
+                    <lightning aura:id="minuteForm" type="number" label="{!$Label.c.LEX_AddMinutesTask_NumberofParticipants}" value="{!v.tsk.NumberofParticipants__c}" required="true">
+                </lightning>
+                <aura attribute="else">
+                    <lightning flexibility="auto" padding="around-small">
+                        <lightning aura:id="minuteForm" type="number" label="{!$Label.c.LEX_AddMinutesTask_NumberofParticipants}" value="{!v.tsk.NumberofParticipants__c}">
+                    </lightning>   
+                </aura>
+            </aura>
+            <lightning flexibility="auto" padding="around-small">
+                <lightning type="date" value="{!v.tsk.ActivityDate}" label="{!$Label.c.LEX_AddMinutesTask_DueDateOnly}">
+            </lightning>
+            <lightning flexibility="auto" padding="around-small">
+                <lightning aura:id="isg" value="{!v.tsk.ISG_Attendees__c}" label="{!$Label.c.LEX_AddMinutesTask_ISGAttendee}" required="true" class="slds-hide" xss=removed>       
+                    <aura items="{!v.listIsgAttendeesValues}" var="item">
+                        <option value="{!item.value}">
+                            {!item}
+                        </option>
+                    </aura>
+                </lightning>
+            </lightning>
+        </lightning>
+        <lightning>
+            <lightning size="6" padding="around-small">
+                <div class="slds-form slds-form_stacked">  
+                    <lightning aura:id="radioGroup" class="radioGroup" name="radioGroup" label="{!$Label.c.LEX_AddMinutesTask_MeetingType}" options="{!v.meetingOptions}" value="{!v.meetingType}" type="radio" xss=removed>
+                </div>
+            </lightning>
+        </lightning>
+        <h3 class="slds-section__title slds-theme--shade primaryPaletteBorder test-id__section-header-container">
+            <span class="test-id__section-header-title section-header-title slds-p-horizontal--small slds-truncate">Products
+                <lightning content="{!$Label.c.LEX_AddMinutesTask_Next_Steps_InlineHelpText+$Label.c.LEX_AddMinutesTask_Next_Steps_InlineHelpText+'\\n'+$Label.c.LEX_AddMinutesTask_Next_Steps_InlineHelpText+$Label.c.LEX_AddMinutesTask_Next_Steps_InlineHelpText}">
+            </span>
+            
+        </h3>
+        <lightning multipleRows="true"> 
+            <lightning flexibility="auto" padding="around-small">
+                <c aura:id="pdt1" objectAPIName="Produit__c" IconName="custom:custom16" selectedRecord="{!v.selectedLookUpProductRecord1}" label="{!$Label.c.LEX_AddMinutesTask_Product_Strategy_1}" required="true">
+            </lightning>
+            <lightning flexibility="auto" padding="around-small">
+                <c aura:id="pdt2" objectAPIName="Produit__c" IconName="custom:custom16" selectedRecord="{!v.selectedLookUpProductRecord2}" label="{!$Label.c.LEX_AddMinutesTask_Product_Strategy_2}">
+            </lightning>  
+            <lightning flexibility="auto" padding="around-small">
+                <c aura:id="pdt3" objectAPIName="Produit__c" IconName="custom:custom16" selectedRecord="{!v.selectedLookUpProductRecord3}" label="{!$Label.c.LEX_AddMinutesTask_Product_Strategy_3}">
+            </lightning> 
+            <lightning flexibility="auto" padding="around-small">
+                <c aura:id="pdt4" objectAPIName="Produit__c" IconName="custom:custom16" selectedRecord="{!v.selectedLookUpProductRecord4}" label="{!$Label.c.LEX_AddMinutesTask_Product_Strategy_4}">
+            </lightning>  
+            <lightning flexibility="auto" padding="around-small">
+                <c aura:id="pdt5" objectAPIName="Produit__c" IconName="custom:custom16" selectedRecord="{!v.selectedLookUpProductRecord5}" label="{!$Label.c.LEX_AddMinutesTask_Product_Strategy_5}">
+            </lightning>
+        </lightning>
+        &lt;!-- This is the only solution I have found for now --&gt;
+        <lightning multipleRows="true">
+            <aura isTrue="{!v.rating}">
+                <lightning flexibility="auto" padding="around-small">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_Client_Interest_1}</label>    
+                    <abbr class="required" title="required" xss=removed>*</abbr>              
+                    <c aura:id="rating1" value="{!v.virtualMinute.Client_Interest_Rating_1__c}" readonly="{!v.rating}">
+                </lightning> 
+                <lightning flexibility="auto" padding="around-small">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_Client_Interest_2}</label>
+                    <c aura:id="rating2" value="{!v.virtualMinute.Client_Interest_Rating_2__c}" readonly="{!v.rating}">
+                </lightning> 
+                <lightning flexibility="auto" padding="around-small">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_Client_Interest_3}</label>
+                    <c aura:id="rating3" value="{!v.virtualMinute.Client_Interest_Rating_3__c}" readonly="{!v.rating}">
+                </lightning>
+                <lightning flexibility="auto" padding="around-small">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_Client_Interest_4}</label>
+                    <c aura:id="rating4" value="{!v.virtualMinute.Client_Interest_Rating_4__c}" readonly="{!v.rating}">
+                </lightning>  
+                <lightning flexibility="auto" padding="around-small">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_Client_Interest_5}</label>
+                    <c aura:id="rating5" value="{!v.virtualMinute.Client_Interest_Rating_5__c}" readonly="{!v.rating}">
+                </lightning>
+                <aura attribute="else">
+                    <lightning flexibility="auto" padding="around-small">
+                        <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_Client_Interest_1}</label>   
+                        <abbr class="required" title="required" xss=removed>*</abbr>                
+                        <c aura:id="rating1" value="{!v.virtualMinute.Client_Interest_Rating_1__c}"> 
+                    </lightning> 
+                    <lightning flexibility="auto" padding="around-small">
+                        <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_Client_Interest_2}</label>
+                        <c aura:id="rating2" value="{!v.virtualMinute.Client_Interest_Rating_2__c}">           
+                    </lightning> 
+                    <lightning flexibility="auto" padding="around-small">
+                        <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_Client_Interest_3}</label>
+                        <c aura:id="rating3" value="{!v.virtualMinute.Client_Interest_Rating_3__c}">
+                    </lightning>
+                    <lightning flexibility="auto" padding="around-small">
+                        <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_Client_Interest_4}</label>
+                        <c aura:id="rating4" value="{!v.virtualMinute.Client_Interest_Rating_4__c}">   
+                    </lightning>  
+                    <lightning flexibility="auto" padding="around-small">
+                        <label class="slds-form-element__label">{!$Label.c.LEX_AddMinutesTask_Client_Interest_5}</label>
+                        <c aura:id="rating5" value="{!v.virtualMinute.Client_Interest_Rating_5__c}">    
+                    </lightning>
+                </aura>
+            </aura>
+        </lightning>
+        <br></br>
+        <div class="grayRatingStars">
+            <lightning multipleRows="true">
+                <lightning flexibility="grow" padding="around-small">
+                    <label class="slds-form-element__label"><b>{!$Label.c.LEX_MinuteRoadshowLegendRating_Client_Interest_Title}</b></label>
+                    <c aura:id="grayrating5" value="5" readonly="true">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_MinuteRoadshowLegendRating_Client_Interest_5}</label>
+                </lightning>
+                <lightning flexibility="grow" padding="around-small">        
+                    <label class="slds-form-element__label">‌‌ </label>
+                    <c aura:id="grayrating4" value="4" readonly="true">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_MinuteRoadshowLegendRating_Client_Interest_4}</label>   
+                </lightning>
+                <lightning flexibility="grow" padding="around-small">    
+                    <label class="slds-form-element__label">‌‌ </label>
+                    <c aura:id="grayrating3" value="3" readonly="true">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_MinuteRoadshowLegendRating_Client_Interest_3}</label>  
+                </lightning>
+                <lightning flexibility="grow" padding="around-small">    
+                    <label class="slds-form-element__label">‌‌ </label>
+                    <c aura:id="grayrating2" value="2" readonly="true">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_MinuteRoadshowLegendRating_Client_Interest_2}</label>  
+                </lightning>
+                <lightning flexibility="grow" padding="around-small">
+                    <label class="slds-form-element__label">‌‌ </label>
+                    <c aura:id="grayrating1" value="1" readonly="true">
+                    <label class="slds-form-element__label">{!$Label.c.LEX_MinuteRoadshowLegendRating_Client_Interest_1}</label>  
+                </lightning>
+            </lightning>   
+        </div>
+        <aura isTrue="{!(!v.isRecordTypeId)}">
+            <h3 class="slds-section__title slds-theme--shade primaryPaletteBorder test-id__section-header-container">
+                <span class="test-id__section-header-title section-header-title slds-p-horizontal--small slds-truncate"><abbr class="required" title="required" xss=removed>*</abbr> Next steps / Action plan /Due Date 
+                    <lightning content="{!$Label.c.LEX_AddMinutesTask_Next_Steps_InlineHelpText}">   <lightning iconName="utility:add" variant="border-filled" xss=removed>
+                </span>
+            </h3>  
+            <aura items="{!v.wrapperList}" var="minutes" indexVar="index">
+                <lightning multipleRows="true" aura:id="show-next-minutes">
+                    <lightning size="6" padding="around-small">    
+                        <lightning aura:id="minuteForm" label="{!$Label.c.LEX_AddMinutesTask_Next_Steps}" value="{!minutes.nextSteps}" placeholder="{!$Label.c.LEX_AddMinutesTask_Next_Steps_Placeholder}" required="true" minlength="10">
+                    </lightning>
+                    <lightning flexibility="2" padding="around-small">
+                        <lightning aura:id="minuteForm" type="date" value="{!minutes.dueDate}" required="true" label="{!$Label.c.LEX_AddMinutesTask_DueDate}">
+                    </lightning>
+                    <lightning flexibility="auto" padding="around-small">
+                        <c aura:id="lookupAssignToFollowTask" objectAPIName="user" IconName="standard:user" selectedRecord="{!minutes.selectedUser}" label="{!$Label.c.LEX_AddMinutesTask_AssignedTo}" required="true">
+                    </lightning>
+                </lightning>
+                <lightning>
+                    <aura isTrue="{!not(empty(v.wrapperList))}">
+                        <lightning size="2" padding="around-small">
+                            <aura isTrue="{!index == 0}">
+                                <a xss=removed data-record="{!index}">
+                                    <lightning aura:id="deleteButton" class="slds-button slds-button--neutral slds-hide" title="Delete Steps" label="{!$Label.c.LEX_AddMinutesTask_Delete}">
+                                </a>
+                                <aura attribute="else">
+                                    <a xss=removed data-record="{!index}">
+                                        <lightning aura:id="deleteButton" class="slds-button slds-button--neutral" title="Delete Steps" label="{!$Label.c.LEX_AddMinutesTask_Delete}">
+                                    </a>
+                                </aura>
+                            </aura>
+                        </lightning> 
+                    </aura>
+                </lightning>
+            </aura>
+        </aura>
+        <h3 class="slds-section__title slds-theme--shade primaryPaletteBorder test-id__section-header-container">
+            <span class="test-id__section-header-title section-header-title slds-p-horizontal--small slds-truncate"><abbr class="required" title="required" xss=removed>*</abbr> Minutes for Internal Use</span>
+        </h3>
+        <lightning>
+            <lightning size="6" padding="around-small">
+                <lightning aura:id="minuteForm" label="{!$Label.c.LEX_AddMinutesTask_MinutesForInternalUse}" value="{!v.virtualMinute.Minutes_for_Internal_Use__c}" placeholder="{!$Label.c.LEX_AddMinutesTask_MinutesForInternalUse_Placeholder}" required="true" minlength="10">
+            </lightning>
+            <lightning flexibility="2" padding="around-small">
+                <ui labelClass="slds-form-element__label" aura:id="checkbox" label="{!$Label.c.LEX_AddMinutesTask_ShareMinutesInternally}" value="{!v.isShareMinutesInternally}" change="{!c.handleShareMinutesCheckbox}"> 
+            </lightning>
+            <aura isTrue="{!v.isShareMinutesInternally}">
+                <lightning flexibility="auto" padding="around-small">
+                    <c aura:id="lookupContactName" objectAPIName="User" IconName="standard:user" lstSelectedRecords="{!v.selectedLookUpShareMinutes}" isInternalContact="true" label="{!$Label.c.LEX_AddMinutesTask_MinutesForInternalUse_ShareMinutes}" required="true" whatId="{!v.pageReference.state.c__WhatId}">
+                </lightning>
+            </aura> 
+        </lightning>
+        <aura isTrue="{!not(empty(v.affiliates))}">
+            <h3 class="slds-section__title slds-theme--shade primaryPaletteBorder test-id__section-header-container">
+                <span class="test-id__section-header-title section-header-title slds-p-horizontal--small slds-truncate"><abbr class="required" title="required" xss=removed>*</abbr> Minutes for Affiliate Communication</span>
+            </h3>
+            <lightning multipleRows="true"> 
+                <aura items="{!v.affiliates}" var="affiliate" indexVar="key">                         
+                    <lightning size="6" padding="around-small">
+                        <lightning aura:id="affiliateForm" label="{!'Minutes for ' +affiliate.key}" value="{!affiliate.value}" required="true" minlength="10"> 
+                    </lightning>
+                    <lightning flexibility="2" padding="around-small">
+                        <ui labelClass="slds-form-element__label" aura:id="checkbox" label="{!$Label.c.LEX_AddMinutesTask_ShareMinutesExternally}" text="{!affiliate.key}" name="{!key}" value="{!affiliate.shareMinutes}"> 
+                    </lightning>
+                    <aura isTrue="{!affiliate.shareMinutes}">
+                        <lightning flexibility="auto" padding="around-small">
+                            <label class="slds-form-element__label" for="text-input-id-1">
+                                <abbr class="slds-required" title="required">*</abbr> 
+                                Affiliate Contacts
+                            </label>
+                            <lightning content="Seperate contact emails with semicolons (;)"> 
+                            <lightning class="hideLabel" aura:id="minuteForm" name="affiliate-contact" value="{!affiliate.contacts}" required="true">
+                        </lightning>
+                    </aura>
+                </aura>  
+            </lightning>
+        </aura>           
+    </lightning>
+    <footer class="slds-modal__footer">
+        <lightning variant="neutral" xss=removed label="{!$Label.c.LEX_AddMinutesTask_Cancel}">        
+        <lightning variant="brand" xss=removed label="{!$Label.c.LEX_AddMinutesTask_Save}">
+        <aura isTrue="{!v.showSpinner}">
+            <lightning xss=removed aura:id="spinner" alternativeText="Loading" size="medium" variant="brand">                 
+        </aura>
+    </footer>
+</aura>
